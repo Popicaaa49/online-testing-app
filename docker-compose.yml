@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-testing
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: online_testing
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - testing-net
+
+  backend:
+    build: ./backend
+    container_name: backend-testing
+    restart: always
+    depends_on:
+      - mysql
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/online_testing?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      APP_ALLOWED_ORIGIN: http://localhost:5173
+    ports:
+      - "8080:8080"
+    networks:
+      - testing-net
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-testing
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    networks:
+      - testing-net
+
+networks:
+  testing-net:
+
+volumes:
+  db_data:
