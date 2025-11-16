@@ -16,10 +16,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+    open-in-view: false
   session:
     store-type: jdbc
     jdbc:
       initialize-schema: always
 
 app:
-  allowed-origin: ${APP_ALLOWED_ORIGIN}
+  allowed-origins: ${APP_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}

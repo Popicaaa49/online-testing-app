@@ -6,6 +6,7 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -14,10 +15,14 @@ public class AuthController {
 
     @GetMapping("/me")
     public Map<String, Object> me(@AuthenticationPrincipal UserDetails user) {
-        return Map.of(
-                "authenticated", user != null,
-                "username", user != null ? user.getUsername() : null
-        );
+        boolean authenticated = user != null;
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("authenticated", authenticated);
+        payload.put("username", authenticated ? user.getUsername() : null);
+        payload.put("roles", authenticated
+                ? user.getAuthorities().stream().map(Object::toString).toList()
+                : List.of());
+        return payload;
     }
 
     @GetMapping("/csrf")
