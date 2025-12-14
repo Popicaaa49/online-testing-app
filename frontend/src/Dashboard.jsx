@@ -3,8 +3,10 @@ import {
   connectLiveUpdates,
   createTest,
   deleteTest,
+  deleteSubmission,
   fetchTest,
   fetchTests,
+  fetchSubmissions,
   submitTest,
   updateTest
 } from './api';
@@ -63,6 +65,8 @@ export default function Dashboard({ user, onLogout }) {
   const [status, setStatus] = useState('');
   const [activity, setActivity] = useState([]);
   const selectedIdRef = useRef(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
 
   const isAdmin = useMemo(
     () => user?.roles?.some((role) => role === 'ROLE_ADMIN'),
@@ -82,21 +86,45 @@ export default function Dashboard({ user, onLogout }) {
     }
   }, []);
 
-  const loadTest = useCallback(async (id) => {
-    if (!id) return;
-    setSelectedLoading(true);
-    selectedIdRef.current = id;
-    try {
-      const data = await fetchTest(id);
-      setSelectedTest(data);
-    } catch (err) {
-      console.error(err);
-      setSelectedTest(null);
-      setStatus(err.message);
-    } finally {
-      setSelectedLoading(false);
-    }
-  }, []);
+  const loadSubmissions = useCallback(
+    async (testId) => {
+      if (!isAdmin || !testId) {
+        setSubmissions([]);
+        return;
+      }
+      setSubmissionsLoading(true);
+      try {
+        const data = await fetchSubmissions(testId);
+        setSubmissions(data ?? []);
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message);
+      } finally {
+        setSubmissionsLoading(false);
+      }
+    },
+    [isAdmin]
+  );
+
+  const loadTest = useCallback(
+    async (id) => {
+      if (!id) return;
+      setSelectedLoading(true);
+      selectedIdRef.current = id;
+      try {
+        const data = await fetchTest(id);
+        setSelectedTest(data);
+        await loadSubmissions(id);
+      } catch (err) {
+        console.error(err);
+        setSelectedTest(null);
+        setStatus(err.message);
+      } finally {
+        setSelectedLoading(false);
+      }
+    },
+    [loadSubmissions]
+  );
 
   useEffect(() => {
     loadTests();
@@ -139,10 +167,13 @@ export default function Dashboard({ user, onLogout }) {
           { id: `submission-${event.submissionId}`, message, timestamp: event.submittedAt },
           ...prev
         ].slice(0, 15));
+        if (isAdmin && selectedIdRef.current === event.testId) {
+          loadSubmissions(event.testId);
+        }
       }
     });
     return disconnect;
-  }, [loadTest, loadTests]);
+  }, [isAdmin, loadSubmissions, loadTest, loadTests]);
 
   const handleSelect = (testId) => {
     setEditorState(null);
@@ -169,6 +200,7 @@ export default function Dashboard({ user, onLogout }) {
       setSelectedTest(null);
       selectedIdRef.current = null;
       loadTests();
+      setSubmissions([]);
     } catch (err) {
       setStatus(err.message);
     }
@@ -179,6 +211,7 @@ export default function Dashboard({ user, onLogout }) {
     try {
       const result = await submitTest(selectedTest.id, payload);
       setStatus(`Rezultat trimis pentru ${payload.participantName}`);
+      await loadSubmissions(selectedTest.id);
       return result;
     } catch (err) {
       setStatus(err.message);
@@ -205,6 +238,18 @@ export default function Dashboard({ user, onLogout }) {
       setFormError(err.message);
     } finally {
       setFormSaving(false);
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId) => {
+    if (!selectedTest) return;
+    if (!window.confirm('Stergi aceasta trimitere?')) return;
+    try {
+      await deleteSubmission(submissionId);
+      setStatus('Submisie stearsa');
+      await loadSubmissions(selectedTest.id);
+    } catch (err) {
+      setStatus(err.message);
     }
   };
 
@@ -307,8 +352,59 @@ export default function Dashboard({ user, onLogout }) {
           )}
         </section>
 
-        <aside style={layoutStyles.card}>
-          <ActivityFeed items={activity} />
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {isAdmin && (
+            <div style={layoutStyles.card}>
+              <h3>Rezultate primite</h3>
+              {selectedTest ? (
+                <>
+                  {submissionsLoading && <p>Se incarca rezultatele...</p>}
+                  {!submissionsLoading && submissions.length === 0 && <p>Nu exista trimiteri pentru acest test.</p>}
+                  {!submissionsLoading && submissions.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {submissions.map((s) => {
+                        const pct = s.maxScore ? Math.round((s.totalScore * 10000) / s.maxScore) / 100 : 0;
+                        return (
+                          <div
+                            key={s.submissionId}
+                            style={{
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '8px',
+                              padding: '8px 10px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '4px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <strong>{s.participantName}</strong>
+                              <button
+                                onClick={() => handleDeleteSubmission(s.submissionId)}
+                                style={{ ...layoutStyles.dangerButton, padding: '4px 8px', fontSize: '12px' }}
+                              >
+                                Sterge
+                              </button>
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#475569' }}>
+                              Scor: {s.totalScore}/{s.maxScore} ({pct}%)
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748b' }}>
+                              Trimisa la {new Date(s.submittedAt).toLocaleString()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p>Selecteaza un test pentru a vedea rezultatele.</p>
+              )}
+            </div>
+          )}
+          <div style={layoutStyles.card}>
+            <ActivityFeed items={activity} />
+          </div>
         </aside>
       </div>
     </div>

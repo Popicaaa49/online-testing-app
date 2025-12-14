@@ -38,6 +38,15 @@ public class SubmissionService {
         TestPaper test = testPaperRepository.findById(testId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Testul nu exista"));
 
+        String participantName = request.participantName() != null ? request.participantName().trim() : "";
+        if (participantName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Introdu numele participantului");
+        }
+
+        if (submissionRepository.existsByTestIdAndParticipantName(testId, participantName)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Rezultatele au fost deja trimise.");
+        }
+
         Map<Long, Long> answers = request.answers();
         if (answers == null || answers.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trimite raspunsurile selectate");
@@ -83,7 +92,7 @@ public class SubmissionService {
 
         TestSubmission submission = TestSubmission.builder()
                 .test(test)
-                .participantName(request.participantName())
+                .participantName(participantName)
                 .totalScore(totalScore)
                 .maxScore(maxScore)
                 .answers(submissionAnswers)

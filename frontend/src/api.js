@@ -9,7 +9,14 @@ async function handleResponse(res) {
   }
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(text || `Request failed with status ${res.status}`);
+    let message = text || `Request failed with status ${res.status}`;
+    try {
+      const json = JSON.parse(text);
+      message = json.message || json.error || message;
+    } catch (_) {
+      // best effort: keep original text
+    }
+    throw new Error(message);
   }
   return text ? JSON.parse(text) : null;
 }
@@ -57,6 +64,10 @@ export async function login(username, password) {
   }
 }
 
+export async function register(username, password) {
+  return sendJson('/api/auth/register', 'POST', { username, password });
+}
+
 export async function logout() {
   const csrf = await getCsrf();
   await fetch(`${API_URL}/logout`, {
@@ -94,6 +105,12 @@ export const deleteTest = (id) =>
 
 export const submitTest = (id, payload) =>
   sendJson(`/api/tests/${id}/submit`, 'POST', payload);
+
+export const fetchSubmissions = (testId) =>
+  fetch(`${API_URL}/api/submissions?testId=${testId}`, { credentials: 'include' }).then(handleResponse);
+
+export const deleteSubmission = (id) =>
+  sendJson(`/api/submissions/${id}`, 'DELETE');
 
 export function connectLiveUpdates({ onTestEvent, onSubmission }) {
   const client = new Client({

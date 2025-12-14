@@ -31,6 +31,7 @@ export default function TestRunner({ test, loading, defaultParticipant, onSubmit
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (result) return;
     setSubmitting(true);
     setError('');
     try {
@@ -121,7 +122,7 @@ export default function TestRunner({ test, loading, defaultParticipant, onSubmit
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || result}
         style={{
           background: '#2563eb',
           border: 'none',
@@ -131,7 +132,11 @@ export default function TestRunner({ test, loading, defaultParticipant, onSubmit
           cursor: 'pointer'
         }}
       >
-        {submitting ? 'Se trimit raspunsurile...' : `Trimite (${answeredCount}/${test.questions.length})`}
+        {submitting
+          ? 'Se trimit raspunsurile...'
+          : result
+          ? 'Ai trimis deja'
+          : `Trimite (${answeredCount}/${test.questions.length})`}
       </button>
     </form>
   );
