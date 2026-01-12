@@ -3,6 +3,7 @@ package com.example.testing.service;
 import com.example.testing.dto.*;
 import com.example.testing.model.TestPaper;
 import com.example.testing.repo.TestPaperRepository;
+import com.example.testing.repo.TestSubmissionRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,13 +14,16 @@ import java.util.List;
 @Service
 public class TestService {
     private final TestPaperRepository testPaperRepository;
+    private final TestSubmissionRepository submissionRepository;
     private final TestMapper mapper;
     private final TestNotificationService notificationService;
 
     public TestService(TestPaperRepository testPaperRepository,
+                       TestSubmissionRepository submissionRepository,
                        TestMapper mapper,
                        TestNotificationService notificationService) {
         this.testPaperRepository = testPaperRepository;
+        this.submissionRepository = submissionRepository;
         this.mapper = mapper;
         this.notificationService = notificationService;
     }
@@ -62,6 +66,7 @@ public class TestService {
         TestPaper existing = testPaperRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Testul nu exista"));
         TestSummaryDto summary = mapper.toSummary(existing);
+        submissionRepository.deleteByTestId(id);
         testPaperRepository.delete(existing);
         notificationService.publishTestChange(TestEventType.DELETED, summary);
     }

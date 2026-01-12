@@ -13,4 +13,6 @@ public interface TestSubmissionRepository extends JpaRepository<TestSubmission, 
 
     @Query("select s from TestSubmission s join fetch s.test t where t.id = :testId order by s.submittedAt desc")
     List<TestSubmission> findByTestIdOrderBySubmittedAtDesc(@Param("testId") Long testId);
+
+    void deleteByTestId(Long testId);
 }
